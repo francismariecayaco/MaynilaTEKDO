@@ -13,6 +13,24 @@ export const setView = (node) => {
   v.appendChild(node);
 };
 
+export function toSlug(value=''){
+  return String(value)
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+    .trim();
+}
+
+export function buildCompanySlug(name, fallback=''){
+  const primary = toSlug(name);
+  if (primary) return primary;
+  if (fallback) return toSlug(fallback) || fallback;
+  return '';
+}
+
 // Hashing with Web Crypto (demo only; consider stronger hashing in production)
 export async function sha256(str) {
   const enc = new TextEncoder();

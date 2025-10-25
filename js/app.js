@@ -1,5 +1,5 @@
 import { db, storage, nowTs, uid } from './config.js';
-import { $, $$, html, setView, genSalt, hashPassword, toCurrency, fmtDate, fileToDataURL } from './utils.js';
+import { $, $$, html, setView, genSalt, hashPassword, toCurrency, fmtDate, fileToDataURL, buildCompanySlug } from './utils.js';
 import { addRoute, onRoute, navigate } from './routing.js';
 import { renderMarketplace } from './market.js';
 import { renderServices } from './service.js';
@@ -11,8 +11,8 @@ import {
   query, where, orderBy, limit, serverTimestamp, increment, runTransaction
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { ref, uploadString, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
-import { renderDashboard } from './dashboard.js';
-import { renderCompanyPage, renderCompanyEdit } from './website.js';
+import { renderDashboard } from './dashboard_clean.js';
+import { renderCompanyPage, renderCompanyEdit, ensureUniqueCompanySlug } from './website.js';
 import { renderBranches } from './branches.js';
 
 // SESSION
@@ -702,6 +702,7 @@ function renderCreateCompany(){
       const c = d.data();
       const cover = c.coverUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1600&auto=format&fit=crop';
       const canDelete = session.role==='superadmin' || c.ownerUid===session.uid;
+      const slug = buildCompanySlug(c.name, d.id) || d.id;
       return `<div class='card'>
         <img src='${cover}' style='width:100%;height:120px;object-fit:cover;border-radius:8px;' alt='cover'/>
         <div style='margin-top:8px;'>
@@ -712,7 +713,7 @@ function renderCreateCompany(){
           ${c.ownerName ? `<div style='color:#a1a1a6;font-size:12px;margin:6px 0;'>Owner: ${c.ownerName}</div>` : ''}
           ${c.offerType ? `<div style='margin:6px 0;'><span class='badge ${c.offerType==='service'?'success':'warning'}'>${c.offerType}</span></div>` : ''}
           <div style='display:flex;gap:8px;'>
-            <a class='btn' href='#/company/${d.id}'>Update</a>
+            <a class='btn' href='#/company/${slug}'>Update</a>
             ${canDelete ? `<button class='btn danger' data-del='${d.id}'>Delete</button>` : ''}
           </div>
         </div>
@@ -754,7 +755,8 @@ async function renderCompaniesList(){
   $('#coList').innerHTML = docs.map(d=>{
     const c = d.data();
     const cover = c.coverUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1600&auto=format&fit=crop';
-    return `<div class='card' data-open='${d.id}' style='cursor:pointer;'>
+    const slug = buildCompanySlug(c.name, d.id) || d.id;
+    return `<div class='card' data-open='${slug}' data-id='${d.id}' style='cursor:pointer;'>
       <img src='${cover}' style='width:100%;height:120px;object-fit:cover;border-radius:8px;' alt='cover'/>
       <div style='margin-top:8px;'>
         <div style='display:flex;align-items:center;gap:8px;'>
@@ -765,8 +767,8 @@ async function renderCompaniesList(){
         ${c.offerType ? `<div style='margin:6px 0;'><span class='badge ${c.offerType==='service'?'success':'warning'}'>${c.offerType}</span></div>` : ''}
         ${c.ownerName ? `<div style='color:#a1a1a6;font-size:12px;margin-bottom:6px;'>Owner: ${c.ownerName}</div>` : ''}
         <div style='display:flex;gap:8px;'>
-          <a class='btn' href='#/company/${d.id}'>Open</a>
-          ${session?.role==='superadmin' ? `<button class='btn secondary' data-manage='${d.id}'>Manage</button>` : ''}
+          <a class='btn' href='#/company/${slug}'>Open</a>
+          ${session?.role==='superadmin' ? `<button class='btn secondary' data-manage='${d.id}' data-slug='${slug}'>Manage</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -774,8 +776,12 @@ async function renderCompaniesList(){
 
   // Optional manage click
   document.getElementById('coList')?.addEventListener('click', (e)=>{
-    const id = e.target.getAttribute('data-manage');
-    if (id){ navigate(`#/company/${id}`); return; }
+    const manageId = e.target.getAttribute('data-manage');
+    const manageSlug = e.target.getAttribute('data-slug');
+    if (manageId){
+      navigate(`#/company/${manageSlug || manageId}`);
+      return;
+    }
     const card = e.target.closest('[data-open]');
     if (card){ navigate(`#/company/${card.getAttribute('data-open')}`); }
   });
@@ -859,13 +865,13 @@ async function renderSearchPage(ctx){
     };
     const results = docs.filter(d=> matches(d.data())).slice(0,24);
     const el = document.getElementById('searchCompanies');
-    if (el){ el.innerHTML = results.map(d=>{ const c=d.data(); const cover=c.coverUrl||'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1600&auto=format&fit=crop'; return `<div class='card'>
+    if (el){ el.innerHTML = results.map(d=>{ const c=d.data(); const cover=c.coverUrl||'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1600&auto=format&fit=crop'; const slug=buildCompanySlug(c.name, d.id)||d.id; return `<div class='card'>
       <div style='display:flex;align-items:center;gap:8px;'>
         ${c.logoUrl ? `<img src='${c.logoUrl}' style='width:28px;height:28px;border-radius:6px;object-fit:cover;' alt='logo'/>` : ''}
         <div style='font-weight:600;'>${c.name||d.id}</div>
       </div>
       <div class='muted' style='margin-top:6px;'>${(c.description||'').slice(0,100)}</div>
-      <div style='margin-top:8px;'><a class='btn secondary' href='#/company/${d.id}'>Open</a></div>
+      <div style='margin-top:8px;'><a class='btn secondary' href='#/company/${slug}'>Open</a></div>
     </div>`; }).join('') || `<div class='muted'>No matching companies.</div>`; }
   } catch(_){ }
 }
@@ -911,6 +917,8 @@ addRoute('/admin/attendance', ()=> renderAttendance());
 addRoute('/admin/payroll', ()=> renderPayroll());
 addRoute('/admin/users', ()=> renderUsers());
 addRoute('/admin/branches', ()=> renderBranches(session));
+// Backwards-compatible alias: allow '#/branches' to still work
+addRoute('/branches', ()=> navigate('#/admin/branches'));
 addRoute('/admin/website', ()=> renderWebsiteEditor());
 addRoute('/admin/sales', async ()=> {
   try { const m = await import('./sales.js'); return m.renderSales(session); }

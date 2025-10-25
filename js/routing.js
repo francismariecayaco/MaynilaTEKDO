@@ -32,6 +32,7 @@ export function navigate(hash) {
 }
 
 export async function onRoute() {
+  if (typeof document !== 'undefined'){ document.body?.classList?.remove('storefront-mode'); }
   const raw = window.location.hash.slice(1) || '/dashboard';
   const [hRaw, qstr] = raw.split('?');
   // normalize path: remove trailing slashes except root

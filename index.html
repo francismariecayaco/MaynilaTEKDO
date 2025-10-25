@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MaynilaTEKDO Business Hub</title>
+  <!-- Use a single relative CSS path; works whether URL is /index.html or /contentPortal/index.html -->
+  <link rel="stylesheet" href="./css/fb.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Libraries (UMD) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- Top nav -->
+    <header class="topbar">
+      <div class="brand" onclick="window.location.hash='#/marketplace'">
+        <img src="materials/MaynilaTEKDOLogoWithIconREV-01.png" alt="logo"/>
+        <span>MaynilaTEKDO</span>
+      </div>
+      <div class="search">
+        <input id="globalSearch" type="search" placeholder="Search products, services, companies..." />
+      </div>
+      <nav class="actions">
+        <button class="nav-btn" data-link="#/marketplace">Marketplace</button>
+        <button class="nav-btn" data-link="#/services">Services</button>
+        <button class="nav-btn" data-link="#/dashboard">Dashboard</button>
+        <button class="nav-btn" data-link="#/login" id="loginBtn">Login</button>
+        <div class="avatar" id="navAvatar"></div>
+      </nav>
+    </header>
+
+    <!-- Layout -->
+    <div class="layout">
+      <aside class="sidebar-left" id="leftSidebar">
+        <div class="sidebar-section">Main</div>
+        <ul>
+          <li><a class="nav-item" href="#/dashboard"><span class="nav-icon">🏠</span><span>Home</span></a></li>
+          <li><a class="nav-item" href="#/services"><span class="nav-icon">🛠️</span><span>Services</span></a></li>
+          <li><a class="nav-item" href="#/marketplace"><span class="nav-icon">🛒</span><span>Marketplace</span></a></li>
+          <li><a class="nav-item" href="#/companies"><span class="nav-icon">🏢</span><span>Companies</span></a></li>
+        </ul>
+        <div class="sidebar-divider"></div>
+        <div id="adminLinks" class="hidden">
+          <div class="sidebar-section">Admin Tools</div>
+          <ul>
+            <li><a class="nav-item" href="#/company/new"><span class="nav-icon">🏢</span><span>Company</span></a></li>
+            <li><a class="nav-item" href="#/admin/pos"><span class="nav-icon">🧾</span><span>Point of Sale</span></a></li>
+            <li><a class="nav-item" href="#/admin/inventory"><span class="nav-icon">📦</span><span>Inventory</span></a></li>
+            <li><a class="nav-item" href="#/admin/products"><span class="nav-icon">🏷️</span><span>Products</span></a></li>
+            <li><a class="nav-item" href="#/admin/attendance"><span class="nav-icon">🕒</span><span>Attendance</span></a></li>
+            <li><a class="nav-item" href="#/admin/payroll"><span class="nav-icon">💳</span><span>Payroll</span></a></li>
+            <li><a class="nav-item" href="#/admin/users"><span class="nav-icon">👥</span><span>Users</span></a></li>
+            <li><a class="nav-item" href="#/admin/website"><span class="nav-icon">🖥️</span><span>Website</span></a></li>
+          </ul>
+        </div>
+        <div class="sidebar-divider"></div>
+        <ul>
+          <li><a class="nav-item" href="#/help"><span class="nav-icon">❓</span><span>Help</span></a></li>
+          <li><a class="nav-item" href="#/settings"><span class="nav-icon">⚙️</span><span>Settings</span></a></li>
+        </ul>
+      </aside>
+
+      <main class="content">
+        <div id="routeView"><!-- routed views inject here --></div>
+      </main>
+
+  <aside class="sidebar-right" id="rightSidebar">
+        <section class="card">
+          <h3>Insights</h3>
+          <div id="insights"></div>
+        </section>
+        <section class="card">
+          <h3>Notifications</h3>
+          <ul id="notifList" class="notif-list"></ul>
+        </section>
+      </aside>
+    </div>
+
+    <footer class="footer"> <p>
+  Copyright &copy;<span id="year"></span> All rights reserved | This is made with <i class="icon-heart color-danger" aria-hidden="true"></i> by <a href="#" target="_blank">MaynilaTEKDO</a>
+  </p></footer>
+  </div>
+
+  <!-- App bootstrap: simple relative import works for both roots -->
+  <script type="module">import './js/app.js';</script>
+  <script>
+    // Set footer year without document.write
+    (function(){
+      var y = document.getElementById('year');
+      if (y) y.textContent = new Date().getFullYear();
+    })();
+  </script>
+</body>
+</html>

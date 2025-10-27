@@ -11,6 +11,7 @@ import {
   query, where, orderBy, limit, serverTimestamp, increment, runTransaction
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { ref, uploadString, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
+import { uploadFile } from './storage.js';
 import { renderDashboard } from './dashboard_clean.js';
 import { renderCompanyPage, renderCompanyEdit, ensureUniqueCompanySlug } from './website.js';
 import { renderBranches } from './branches.js';
@@ -655,24 +656,18 @@ function renderCreateCompany(){
     const logo = f.logoFile.files?.[0];
     const permit = f.permitFile.files?.[0];
     const dti = f.dtiFile.files?.[0];
-    try {
+      try {
       if (logo){
-        const dataUrl = await fileToDataURL(logo);
-        const r = ref(storage, `companies/${docRef.id}/logo_${Date.now()}.jpg`);
-        await uploadString(r, dataUrl, 'data_url');
-        updates.logoUrl = await getDownloadURL(r);
+        const res = await uploadFile(logo, `companies/${docRef.id}/logo_`);
+        updates.logoUrl = res.url;
       }
       if (permit){
-        const dataUrl = await fileToDataURL(permit);
-        const r = ref(storage, `companies/${docRef.id}/business_permit_${Date.now()}.jpg`);
-        await uploadString(r, dataUrl, 'data_url');
-        updates.businessPermitUrl = await getDownloadURL(r);
+        const res = await uploadFile(permit, `companies/${docRef.id}/business_permit_`);
+        updates.businessPermitUrl = res.url;
       }
       if (dti){
-        const dataUrl = await fileToDataURL(dti);
-        const r = ref(storage, `companies/${docRef.id}/dti_${Date.now()}.jpg`);
-        await uploadString(r, dataUrl, 'data_url');
-        updates.dtiUrl = await getDownloadURL(r);
+        const res = await uploadFile(dti, `companies/${docRef.id}/dti_`);
+        updates.dtiUrl = res.url;
       }
       if (Object.keys(updates).length){ await updateDoc(doc(db,'companies', docRef.id), updates); }
     } catch(err){ console.error('Upload failed', err); }

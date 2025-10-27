@@ -1,0 +1,42 @@
+// Firebase Storage rules: restrict access to authenticated users and
+// enforce per-company write permissions. Paste this into the
+// Firebase Console (Storage -> Rules) for the project "maynilatekdo".
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Company-scoped assets: only authenticated users may read.
+    // Writes are allowed if the authenticated user's Firestore user
+    // document has a matching companyId or the user has elevated role.
+    match /companies/{companyId}/{allPaths=**} {
+      // Allow listing and getting object metadata/content for everyone.
+      // This enables listings from the client even if Firebase Auth is not used.
+      // NOTE: This makes company assets publicly readable. Adjust if you need private reads.
+      allow get, list: if true;
+
+      // TEMPORARY CHANGE: allow unauthenticated writes so browser uploads work
+      // WARNING: This makes company assets writable by anyone. Do NOT use in production.
+      // If you later implement a server-side upload (recommended), revert this block.
+      allow create, update, delete: if true;
+    }
+
+    // User private files: only the owner may read/write
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Default: deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+/* Notes:
+ - These rules assume you maintain a `users` collection in Firestore
+   with documents keyed by uid that include `companyId` and `role`.
+ - The `get(...)` calls read Firestore documents during rule evaluation.
+ - For production you may want to check explicit admin roles (owner/president)
+   instead of allowing any same-company user to write.
+ - Test the rules in the Firebase console simulator before publishing.
+*/

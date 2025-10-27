@@ -1,7 +1,9 @@
 import { db, storage } from './config.js';
 import { $, html, setView, fileToDataURL, toCurrency, toSlug, buildCompanySlug } from './utils.js';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc, limit } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { ref, uploadString, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
+import { showCompanyUploads } from './uploads_ui.js';
+import { ref, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
+import { uploadFile } from './storage.js';
 
 export async function renderCompanyPage(identifier, session){
   const resolved = await resolveCompany(identifier);
@@ -104,9 +106,10 @@ async function renderMarketplaceStorefront({ companyId, co, canEdit, slug }){
               <li><span>Phone</span><strong>${escapeHtml(co.phone || '—')}</strong></li>
             </ul>
             ${canEdit ? `<div class="marketplace-sidebar-actions">
-              <a class="btn secondary" href="#/company/${companyId}/edit">Edit store</a>
-              <a class="btn" href="#/admin/products?companyId=${companyId}">Manage catalog</a>
-            </div>` : ''}
+                <a class="btn secondary" href="#/company/${companyId}/edit">Edit store</a>
+                <a class="btn" href="#/admin/products?companyId=${companyId}">Manage catalog</a>
+                <button class="btn" id="btnUploads">Uploaded files</button>
+              </div>` : ''}
           </div>
         </aside>
         <div class="marketplace-main">
@@ -342,6 +345,7 @@ async function renderServiceShowcase({ companyId, co, canEdit, slug }){
           ${canEdit ? `<div class="service-actions">
             <a class="btn secondary" href="#/company/${companyId}/edit">Edit site</a>
             <a class="btn" href="#/admin/products?companyId=${companyId}">Manage services</a>
+            <button class="btn" id="btnUploadsSvc">Uploaded files</button>
           </div>` : ''}
         </div>
       </header>
@@ -580,14 +584,26 @@ async function renderClassicCompanyProfile({ companyId, co, canEdit, coRef }){
     });
     $('#coverFile')?.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
-      if (!file) return;
-      const dataUrl = await fileToDataURL(file);
-      const storageRef = ref(storage, `companies/${companyId}/cover.jpg`);
-      await uploadString(storageRef, dataUrl, 'data_url');
-      const url = await getDownloadURL(storageRef);
-      await updateDoc(coRef, { coverUrl: url });
-      $('#coverImg').src = url;
+        if (!file) return;
+        // Use app session (localStorage) for permission checks
+        const SESSION_KEY = 'cp.session.v1';
+        const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+        if (!session){ alert('Please sign in to the app to upload files.'); return; }
+        const allowedRoles = new Set(['superadmin','admin-owner','admin-president','admin-manager','admin-supervisor']);
+        if (!(session.role === 'superadmin' || (session.companyId === companyId && allowedRoles.has(session.role)))){
+          alert('You do not have permission to upload files for this company.');
+          return;
+        }
+
+        try {
+          const res = await uploadFile(file, `companies/${companyId}/cover_`);
+          const url = res.url;
+          await updateDoc(coRef, { coverUrl: url });
+          $('#coverImg').src = url;
+        } catch(err){ console.error('Upload failed', err); alert('Upload failed: '+(err.message||err)); }
     });
+    // Show uploads modal (company assets)
+    document.getElementById('btnUploads')?.addEventListener('click', ()=> showCompanyUploads(companyId));
   }
 }
 
@@ -612,6 +628,7 @@ export async function renderCompanyEdit(companyId, session){
       <div style='display:flex;justify-content:space-between;align-items:center;'>
         <h3 style='margin:0;'>Edit Company</h3>
         <div style='display:flex;gap:8px;'>
+          <button class='btn' id='btnUploadsEdit'>Uploaded files</button>
           <a class='btn secondary' href='#/company/${slug}'>Back to Company</a>
         </div>
       </div>
@@ -661,12 +678,22 @@ export async function renderCompanyEdit(companyId, session){
   document.getElementById('editCoverFile')?.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const dataUrl = await fileToDataURL(file);
-    const storageRef = ref(storage, `companies/${companyId}/cover.jpg`);
-    await uploadString(storageRef, dataUrl, 'data_url');
-    const url = await getDownloadURL(storageRef);
-    await updateDoc(coRef, { coverUrl: url });
-    document.getElementById('editCoverImg').src = url;
+    // Use app session (localStorage) for permission checks
+    const SESSION_KEY = 'cp.session.v1';
+    const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    if (!session){ alert('Please sign in to the app to upload files.'); return; }
+    const allowedRoles = new Set(['superadmin','admin-owner','admin-president','admin-manager','admin-supervisor']);
+    if (!(session.role === 'superadmin' || (session.companyId === companyId && allowedRoles.has(session.role)))){
+      alert('You do not have permission to upload files for this company.');
+      return;
+    }
+
+    try {
+      const res = await uploadFile(file, `companies/${companyId}/cover_`);
+      const url = res.url;
+      await updateDoc(coRef, { coverUrl: url });
+      document.getElementById('editCoverImg').src = url;
+    } catch(err){ console.error('Upload failed', err); alert('Upload failed: '+(err.message||err)); }
   });
 
   document.getElementById('coEditForm')?.addEventListener('submit', async (e) => {
@@ -698,23 +725,27 @@ export async function renderCompanyEdit(companyId, session){
     const dti = form.dtiFile.files?.[0];
 
     try {
+      // Use app session (localStorage) for permission checks
+      const SESSION_KEY = 'cp.session.v1';
+      const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+      if (!session){ alert('Please sign in to the app to upload files.'); return; }
+      const allowedRoles = new Set(['superadmin','admin-owner','admin-president','admin-manager','admin-supervisor']);
+      if (!(session.role === 'superadmin' || (session.companyId === companyId && allowedRoles.has(session.role)))){
+        alert('You do not have permission to upload files for this company.');
+        return;
+      }
+
       if (logo){
-        const dataUrl = await fileToDataURL(logo);
-        const storageRef = ref(storage, `companies/${companyId}/logo_${Date.now()}.jpg`);
-        await uploadString(storageRef, dataUrl, 'data_url');
-        uploads.logoUrl = await getDownloadURL(storageRef);
+        const res = await uploadFile(logo, `companies/${companyId}/logo_`);
+        uploads.logoUrl = res.url;
       }
       if (permit){
-        const dataUrl = await fileToDataURL(permit);
-        const storageRef = ref(storage, `companies/${companyId}/business_permit_${Date.now()}.jpg`);
-        await uploadString(storageRef, dataUrl, 'data_url');
-        uploads.businessPermitUrl = await getDownloadURL(storageRef);
+        const res = await uploadFile(permit, `companies/${companyId}/business_permit_`);
+        uploads.businessPermitUrl = res.url;
       }
       if (dti){
-        const dataUrl = await fileToDataURL(dti);
-        const storageRef = ref(storage, `companies/${companyId}/dti_${Date.now()}.jpg`);
-        await uploadString(storageRef, dataUrl, 'data_url');
-        uploads.dtiUrl = await getDownloadURL(storageRef);
+        const res = await uploadFile(dti, `companies/${companyId}/dti_`);
+        uploads.dtiUrl = res.url;
       }
     } catch (err){
       console.error('Upload failed', err);
@@ -723,6 +754,8 @@ export async function renderCompanyEdit(companyId, session){
     await updateDoc(coRef, { ...patch, ...uploads });
     alert('Company updated');
   });
+    // Show uploads modal (company assets) from edit page as well
+    document.getElementById('btnUploadsEdit')?.addEventListener('click', ()=> showCompanyUploads(companyId));
 }
 
 export async function ensureUniqueCompanySlug(desiredSlug, companyId){
